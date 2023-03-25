@@ -1,0 +1,19 @@
+RESULT FINAL
+                 all       0.88
+         bui_chi_han      0.956
+                   c      0.994
+            cham_keo      0.995
+               divat      0.472
+      khong_cham_keo      0.987
+        han_tay_choi      0.995
+           han_thieu      0.952
+                  me      0.372
+        chat_tro_han      0.781
+                 sat      0.995
+         keo_dinh_tc      0.534
+       han_chau_dien      0.995
+           loi_ferit       0.96
+                lx_2      0.995
+                lx_3      0.995
+                lx_5      0.995
+                lx_6      0.994

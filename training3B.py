@@ -1,6 +1,5 @@
 import PySimpleGUI as sg
 from collections import Counter
-from plyer import notification
 import glob
 import torch
 
@@ -10,24 +9,29 @@ import shutil
 
 import time, datetime 
 import cv2
+
 import subprocess
 import traceback
 import sqlite3
 
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-
-
 def time_to_name():
-    name_folder = f'{datetime.datetime.now():%Y-%m-%d_%H-%M-%S-%f}'
+    name_folder =  f'{datetime.datetime.now():%Y-%m-%d_%H-%M-%S-%f}'
     return name_folder
 
-def notify(tieude, noidung):
-    notification.notify(
-    title = tieude,
-    message = noidung,
-    timeout = 10
-    )
+def execute_query(query):
+    connection = sqlite3.connect('Queue_train.db')
+    cursor = connection.cursor()
+    while True:
+        try:
+            cursor.execute(query)
+            break
+        except sqlite3.OperationalError as error:
+            if 'database is locked' not in str(error):
+                raise error
+            else:
+                time.sleep(0.1)
+    connection.commit()
+    connection.close()
 
 def test():
     import threading
@@ -60,7 +64,7 @@ def another_function(cuaso):
         #window['progress1'].update(visible=True)
         for f in tatca:
             tenf = os.path.basename(f)
-            # print(tenf)
+            print(tenf)
             shutil.copyfile(f,values['directory_save4a'] + '/' + tenf)
             i += 1
             if ht != int(100 * (i/len(tatca))):
@@ -93,14 +97,17 @@ MYBPAD = ((20,10), (10, 10))
 # model1 = torch.hub.load('./levu','custom', path= mypath1, source='local',force_reload =False)
 
 cls_names = []
-f=open('classes.txt','r')
-while True:
-    line = f.readline()
-    if not line:
-        break
-    tmp = line.split()
-    cls_names.append(tmp[0]) 
-
+try:
+    f=open('classes.txt','r')
+    while True:
+        line = f.readline()
+        if not line:
+            break
+        tmp = line.split()
+        cls_names.append(tmp[0])
+    f.close() 
+except:
+    pass
 file_weights = [('Weights (*.pt)', ('*.pt'))]
 
 def make_window():
@@ -172,28 +179,29 @@ def make_window():
                 sg.FolderBrowse(size=(int(0.7*12),1), font=('Helvetica',10),key= 'directory_save1',enable_events=True) ],
                 [sg.T(' 6.Start auto filter', font='Any 15', text_color = 'orange'),
                 sg.Radio('Move',group_id='CHK1',size=(5,5),default=True,font=('Helvetica',15),  key='CHK_MOVE',enable_events=True), 
-                sg.Radio('Copy',group_id='CHK1',size=(5,5),font=('Helvetica',15),  key='CHK_COPY',enable_events=True),
-                sg.Combo((416,608,768),default_value=416,key='sz2b'), 
+                sg.Radio('Copy',group_id='CHK1',size=(5,5),font=('Helvetica',15),  key='CHK_COPY',enable_events=True), 
+                sg.Combo((416,608,768,896,1024),default_value=416,key='sz2b'),
                 sg.Button('Start', size=(int(0.7*12),1), font=('Helvetica',10),key= 'start1')],
                 ]
 
     Step_1n =[
-                [sg.Text('Step 6+: Queue train', font='Any 20', text_color='yellow')],
+                [sg.Text('Step 6+: Quee train', font='Any 20', text_color='yellow')],
                 [sg.T('1.Choose splited Folder train/valid', font='Any 15', text_color = 'orange')],
                 [sg.Input(size=(int(0.7*35),1), font=('Helvetica',12), key='input_move6',readonly= True, text_color='navy',enable_events= True),
-                sg.FolderBrowse(size=(int(0.7*12),1), font=('Helvetica',10), enable_events=True) ],
-                [sg.T('2.All name labels', font='Any 15', text_color = 'orange')],
-                [sg.Multiline('',size=(int(0.7*40),int(0.7*10)),text_color='navy', disabled = True, key='input_classes6')],
+                sg.FolderBrowse(size=(int(0.7*12),1), font=('Helvetica',10),key= 'directory_move6',enable_events=True) ],
+                [sg.T('2.Enter all name labels', font='Any 15', text_color = 'orange')],
+                [sg.Multiline('',size=(int(0.7*40),int(0.7*10)),text_color='navy' ,key='input_classes6')],
+                [sg.Button('OK', size=(int(0.7*12),1), font=('Helvetica',10),key= 'button_classes6'),
+                sg.T('or select classes.txt', font='Any 15', text_color = 'orange')],
                 [sg.T('3.Choose Epoches number', font='Any 15', text_color = 'orange')],
-                [sg.Slider(range=(1,500),orientation='h',size=(int(0.7*48),20),font=('Helvetica',11),default_value=300 ,key= 'input_epoch6')],
+                [sg.Slider(range=(1,500),orientation='h',size=(int(0.7*48),20),font=('Helvetica',11),default_value=300 ,key= 'input_epoch6',tooltip=False)],
                 [sg.T('4.Choose folder Save Result', font='Any 15', text_color = 'orange')],
                 [sg.Input(size=(int(0.7*35),1), font=('Helvetica',12), key='input_save6',readonly= True, text_color='navy',enable_events= True),
                 sg.FolderBrowse(size=(int(0.7*12),1), font=('Helvetica',10),key= 'directory_image6',enable_events=True) ],
                 [sg.T('5.Input Name Line_Mahang_Cam', font='Any 15', text_color = 'orange')],
                 [sg.Input(size=(int(0.7*48),1), font=('Helvetica',12), key='input_name6', text_color='navy',enable_events= True) ],
                 [sg.T('6.Add data to quee train', font='Any 15', text_color = 'orange')],
-                [sg.Combo((416,608,768),default_value=416,key='sz6'),sg.Combo((2,4,8,16,24,32),default_value=32,key='bz6'),
-                 sg.Button('Add', size=(int(0.7*12),1), font=('Helvetica',10),key= 'start6')],
+                [sg.Combo((416,608),default_value=416,key='sz6'),sg.Button('Add', size=(int(0.7*12),1), font=('Helvetica',10),key= 'start6')],
                
     ]
    
@@ -239,7 +247,7 @@ def make_window():
                 sg.Input(size=(int(0.7*70),1), font=('Helvetica',12), key='input_save2n',readonly= True, text_color='navy',enable_events= True),
                 sg.FolderBrowse(size=(int(0.7*12),1), font=('Helvetica',10),key= 'directory_save2n',enable_events=True) ],
                 [sg.T(' 6.Start create auto label with size', font='Any 15', text_color = 'orange'),
-                sg.Combo((416,608,768),default_value=416,key='sz2n'),
+                sg.Combo((416,608),default_value=416,key='sz2n'),
                 sg.Button('Start', size=(int(0.7*12),1), font=('Helvetica',10),key= 'start2n')],
                 ]
 
@@ -260,7 +268,7 @@ def make_window():
                 [sg.Multiline('',size=(int(0.7*40),int(0.7*10)),text_color='navy' ,key='input_classes2')],
                 [sg.Button('OK', size=(int(0.7*12),1), font=('Helvetica',10),key= 'button_classes2')],
                 [sg.T('6.Start create auto label', font='Any 15', text_color = 'orange')],
-                [sg.Combo((416,608,768),default_value=416,key='sz2'),sg.Button('Start', size=(int(0.7*12),1), font=('Helvetica',10),key= 'start2')],
+                [sg.Combo((416,608),default_value=416,key='sz2'),sg.Button('Start', size=(int(0.7*12),1), font=('Helvetica',10),key= 'start2')],
                 
             ]
 
@@ -291,9 +299,13 @@ def make_window():
     
     Step_4 = [
                 [sg.Text('Step 4: Labeling with LabelImg', font='Any 20', text_color='yellow')],
-                [sg.T('1.Enter all name labels', font='Any 15', text_color = 'orange')],
-                [sg.Multiline('',size=(int(0.7*40),int(0.7*10)),text_color='navy' ,key='input_classes3')],
-                [sg.Button('OK', size=(int(0.7*12),1), font=('Helvetica',10),key= 'button_classes3')],     
+                [sg.T('1.Tìm File classes.txt', font='Any 15', text_color = 'orange')],
+                [sg.Button('Browse', size=(int(0.7*20),1), font=('Helvetica',10),key= 'button_classes3')],
+                [sg.Frame('',[
+                    [
+                        sg.Text(f'{cls_names[i3]}_4',size=(int(0.7*20),1),font=('Helvetica',15), text_color='pink'),  
+                    ] for i3 in range(len(cls_names))
+                ], relief=sg.RELIEF_FLAT)],   
                 [sg.T('2.Open LabelImg', font='Any 15', text_color = 'orange')],
                 [sg.Button('Open', size=(int(0.7*12),1), font=('Helvetica',10),key= 'program3')],       
             ]
@@ -359,7 +371,7 @@ def make_window():
                 [sg.T('5.Nhap ten Line_Mahang_Cam', font='Any 15', text_color = 'orange')], 
                 [sg.Input( size=(35, 1), font=("Helvetica", 12), key="input_name5", text_color="navy", enable_events=True, )],
                 [sg.T('6.Start auto training', font='Any 15', text_color = 'orange')],
-                [sg.Combo((416,608,768),default_value=416,key='sz5'),sg.Button('Start', size=(int(0.7*12),1), font=('Helvetica',10),key= 'start5')],
+                [sg.Combo((416,608),default_value=416,key='sz5'),sg.Button('Start', size=(int(0.7*12),1), font=('Helvetica',10),key= 'start5')],
             ]
 
     Step_2a = [
@@ -417,7 +429,7 @@ def make_window():
     layout_2 = [
                 [sg.Column(Step_3, size=(int(0.7*480),int(0.9*700)),  pad=MYBPAD),
                 sg.Column([ 
-                            [sg.Column(Step_4, size=(int(0.9*480),int(0.9*350)), pad=MYBPAD)],
+                            [sg.Column(Step_4, scrollable = True, vertical_scroll_only = True,size=(int(0.9*480),int(0.9*350)), pad=MYBPAD)],
                             [sg.Column(Step_5, size=(int(0.9*480),int(0.9*320)), pad=MYBPAD)]], pad=MYBPAD, background_color=BORDER_COLOR),
                 sg.Column(Step_6, size=(int(0.8*480),int(0.9*700)),  pad=MYBPAD),
                 ]]
@@ -431,11 +443,11 @@ def make_window():
         
     layout = [[
                 sg.TabGroup([[  
-                            sg.Tab('Page 1', layout_1,background_color=BORDER_COLOR),
-                            sg.Tab('Page 1+', layout_1n,background_color=BORDER_COLOR),
-                            sg.Tab('Page 2', layout_2,background_color=BORDER_COLOR),
-                            sg.Tab('Page 3', layout_3,background_color=BORDER_COLOR),
-                            ]],background_color=BORDER_COLOR,selected_background_color= BORDER_COLOR,selected_title_color='black')
+                            sg.Tab('Page 1', layout_1, background_color=BORDER_COLOR, key='-Page1-'),
+                            sg.Tab('Page 1+', layout_1n, background_color=BORDER_COLOR, key='-Page1+-'),
+                            sg.Tab('Page 2', layout_2, background_color=BORDER_COLOR, key='-Page2-'),
+                            sg.Tab('Page 3', layout_3, background_color=BORDER_COLOR, key='-Page3-'),
+                            ]], key='-Group-', background_color=BORDER_COLOR, selected_background_color= BORDER_COLOR, selected_title_color='black')
                 ]]
     window = sg.Window('Huynh Le Vu', layout, margins=(0,0), background_color=BORDER_COLOR, grab_anywhere=True)
     return window
@@ -445,7 +457,7 @@ mypath1 = "best.pt"
 model1 = torch.hub.load('./levu','custom', path= mypath1, source='local',force_reload =False)
 model2 = torch.hub.load('./levu','custom', path= mypath1, source='local',force_reload =False)
 window = make_window()
-
+current_tab_key = '-Page1-'
 while True:             # Event Loop
     event, values = window.read(timeout=20)
     if event == sg.WIN_CLOSED or event == 'Exit':
@@ -475,7 +487,7 @@ while True:             # Event Loop
                             img0 = cv2.imread(path0)
                             cv2.imwrite(values['input_save0'] + '/' + time_to_name() + '.jpg',img0)
                             i+=1
-                            print(i,end='\r')
+                            print(i)
             window['input_image0'].update(value='')
             window['input_save0'].update(value='')
             window['input_names0'].update(value='')
@@ -513,19 +525,22 @@ while True:             # Event Loop
     if event == 'input_weight1':
         mypath = values['input_weight1']
         model1 =torch.hub.load('./levu','custom', path= mypath, source='local', force_reload =False)
+        current_tab_key = values['-Group-']
         window.close()
         window = make_window()
         event, values = window.read(timeout=20)
         window['input_weight1'].update(value=mypath)
-
+        window[current_tab_key].select()
+        
     if event == 'input_weight2n':
         mypath = values['input_weight2n']
-        model2 =torch.hub.load('./levu','custom', path= mypath, source='local', force_reload =False)        
+        model2 =torch.hub.load('./levu','custom', path= mypath, source='local', force_reload =False)
+        current_tab_key = values['-Group-']        
         window.close()
         window = make_window()
         event, values = window.read(timeout=20)
         window['input_weight2n'].update(value=mypath)
-
+        window[current_tab_key].select()
 
     if event == 'input_folder2a':
         mypath2a= values['input_folder2a']
@@ -546,13 +561,15 @@ while True:             # Event Loop
                     break
                 tmp = line.split()
                 cls_names.append(tmp[0])
+            f.close()
             os.remove('./classes.txt')
-            shutil.copyfile(mypath,'./classes.txt') 
+            shutil.copyfile(mypath,'./classes.txt')
+            current_tab_key = values['-Group-'] 
             window.close()
             window = make_window()
             event, values = window.read(timeout=20)
             window['input_folder2a'].update(value=mypath2a)
-    
+            window[current_tab_key].select()
     if event == 'start2b':
         NG=[]
         OK={}
@@ -600,7 +617,7 @@ while True:             # Event Loop
         if (values['input_weight1'] != '') & (values['input_image1'] !='') & (values['input_save1'] != ''):
             #mypath = values['input_weight1']
             #model1 =torch.hub.load('./levu','custom', path= mypath, source='local', force_reload =False)
-            size = int(values['sz2b'])
+            size = values['sz2b']
             conf = values['input_conf1']/100
             mydir = values['input_image1'] + '/*.jpg'
 
@@ -609,18 +626,18 @@ while True:             # Event Loop
                     index = i
                     break
             hinh=glob.glob(mydir)
-            cnt = len(hinh)
+            # cnt = len(hinh)
             for path1 in hinh:
                 name = path1[index+1:-4]
-
-                img1 = cv2.imread(path1)
+                # print(name)
+                # img1 = cv2.imread(path1)
+                # ROI = img1[353:576,592:952]
+                # result1 = model1(ROI,size= size,conf = conf) 
                 
-                result1 = model1(path1,size= size,conf = conf) 
-
+                result1 = model1(path1,size= size,conf = conf)
                 table1 = result1.pandas().xyxy[0]
                 #print(table1)
-                area_remove1 = []
-
+                
                 myresult1 =0 
 
                 for item in range(len(table1.index)):
@@ -635,19 +652,14 @@ while True:             # Event Loop
                             if label_name == model1.names[i1]:
                                 if conf1 < int(values[f'{model1.names[i1]}_conf_1']): 
                                     table1.drop(item, axis=0, inplace=True)
-                                    area_remove1.append(item)
-                                if width1 < int(values[f'{model1.names[i1]}_Wn_1']): 
+                                elif width1 < int(values[f'{model1.names[i1]}_Wn_1']): 
                                     table1.drop(item, axis=0, inplace=True)
-                                    area_remove1.append(item)
                                 elif width1 > int(values[f'{model1.names[i1]}_Wx_1']): 
                                     table1.drop(item, axis=0, inplace=True)
-                                    area_remove1.append(item)
                                 elif height1 < int(values[f'{model1.names[i1]}_Hn_1']): 
                                     table1.drop(item, axis=0, inplace=True)
-                                    area_remove1.append(item)
                                 elif height1 > int(values[f'{model1.names[i1]}_Hx_1']): 
                                     table1.drop(item, axis=0, inplace=True)
-                                    area_remove1.append(item)
 
                 names1 = list(table1['name'])
 
@@ -682,11 +694,10 @@ while True:             # Event Loop
 
                 #if myresult1 == 0:
                 #    print(name,'OK')
-                cnt -= 1
-                print(cnt,end='\r')
+            print('Completed')
     
             # window['input_weight1'].update(value='')
-            window['input_image1'].update(value='')
+            # window['input_image1'].update(value='')
             # window['input_save1'].update(value='')
         else:
             sg.popup_error('Error')
@@ -738,7 +749,7 @@ while True:             # Event Loop
             for path in glob.glob(mydir):
                 name = path[index+1:-4]
                 cnt += 1
-                print(cnt, end='\r')
+                print(cnt, name)
                 result = model(path,size=int(values['sz2']),conf=values['input_conf2']/100)
                 f = open(mysave + name + '.txt', "w")
                 for detect in result.xywhn:
@@ -783,12 +794,23 @@ while True:             # Event Loop
             for i3 in range(len(model2.names)):
                 if values[f'{model2.names[i3]}_3']:
                     myclasses2n.append(model2.names[i3])
-        
+            
+            lastclasses=[]
+            if os.path.exists(mysave + 'lastclasses.txt'):
+                with open(mysave + 'lastclasses.txt','r') as f:
+                    while True:
+                        line = f.readline()
+                        if not line:
+                            break
+                        tmp = line.split()
+                        lastclasses.append(tmp[0])
+                f.close()
+            print('lastclasses',lastclasses)
             cnt = 0
             for path in glob.glob(mydir):
                 name = path[index+1:-4]
                 cnt += 1
-                print(cnt, end='\r')
+                print(cnt, name)
                 result = model2(path,size=int(values['sz2n']),conf=values['input_conf2n']/100)
                 f = open(mysave + name + '.txt', "a")
                 for detect in result.xywhn:
@@ -796,6 +818,7 @@ while True:             # Event Loop
                     #print(detect)
                     for item in range(len(mydetects)):
                         mydetect = mydetects[item]
+                        mydetect = [round(i,6) for i in mydetect]
                         number_label = mydetect[-1]
                         i3 = int(number_label)
                         conf_child = float(mydetect[-2])
@@ -806,7 +829,7 @@ while True:             # Event Loop
                         if conf_child > int(values[f'{model2.names[i3]}_conf_3'])/100 and w > float(values[ f'{model2.names[i3]}_Wn_3']) and w < float(values[ f'{model2.names[i3]}_Wx_3']) and d > float(values[ f'{model2.names[i3]}_Hn_3']) and d < float(values[ f'{model2.names[i3]}_Hx_3']):
                             name_label = result.names[i3]
                             for myclass in myclasses2n:
-                                if myclass == name_label:
+                                if myclass == name_label and myclass not in lastclasses:
                                     cls = str(i3)
 
                         # if conf_child > int(values[f'{model2.names[i3]}_conf_3'])/100 and w > float(values[ f'{model2.names[i3]}_Wn_3']) and w < float(values[ f'{model2.names[i3]}_Wx_3']) and d > float(values[ f'{model2.names[i3]}_Hn_3']) and d < float(values[ f'{model2.names[i3]}_Hx_3']):
@@ -814,10 +837,22 @@ while True:             # Event Loop
                         #     for i,myclass in zip(range(len(myclasses2n)),myclasses2n):
                         #         if name_label == myclass:
                         #             label_text = str(i)
-                        if cls != '':
-                            f.write(cls + " " + str(round(mydetect[0],6)) + " " + str(round(mydetect[1],6)) + " " + str(round(mydetect[2],6)) + " " + str(round(mydetect[3],6)) + '\n')
-                            
+                        if cls!='':
+                            f.write(cls + " " + str(mydetect[0]) + " " + str(mydetect[1]) + " " + str(mydetect[2]) + " " + str(mydetect[3]) + '\n')
+                            # if cls != '1':
+                            #     f.write(cls + " " + str(mydetect[0]) + " " + str(mydetect[1]) + " " + str(mydetect[2]) + " " + str(mydetect[3]) + '\n')
+                            # else:
+                            #     w = max(float(mydetect[2]),0.013125)
+                            #     h = max(float(mydetect[3]),0.0175)
+                            #     f.write(cls + " " + str(mydetect[0]) + " " + str(mydetect[1]) + " " + str(w) + " " + str(h) + '\n')
                     f.close()
+
+            # with open(mysave + 'lastclasses.txt', "a") as f: 
+            #     for myclass in myclasses2n:
+            #         f.write(myclass)
+            #         if myclass != myclasses2n[-1]:
+            #             f.write('\n')
+            # f.close()
 
             #class from weight file
             with open(mysave + 'classes.txt', "w") as f: 
@@ -878,7 +913,7 @@ while True:             # Event Loop
             for path in glob.glob(mydir):
                 name = path[index+1:-4]
                 cnt += 1
-                print(cnt, end='\r')
+                print(cnt, name)
                 result = model(path,size=416,conf=values['input_conf2a']/100)
                 f = open(mysave + name + '.txt', "a")
                 for detect in result.xywhn:
@@ -908,59 +943,58 @@ while True:             # Event Loop
             sg.popup_error('Error')
             
     if event == 'button_classes3':
-        if values['input_classes3'] != '':
-            myclasses3 = []
-            texts = values['input_classes3'].split('\n')
-            for text in texts:
-                myclasses3.append(text)
-            #print('myclasses3 =',myclasses3)
-            with open(os.getcwd() + '/labelImg/data/predefined_classes.txt', "w") as f:
-                for myclass3 in myclasses3:
+        ftext = sg.PopupGetFile(message='Please find file classes.txt',title='This is PopupFileBrowser ',file_types=(("Classes File", "classes.txt"),("Text Files", "*.txt"),))
+        if ftext != '' and ftext != None:
+            f = open(ftext, 'r')
+            cls_names = []
+            while True: 
+                line = f.readline()
+                if not line:
+                    break
+                tmp = line.split('\n')
+                cls_names.append(tmp[0])
+            f.close()
+            # Write classes.txt    
+            with open('classes.txt', "w") as f:
+                for myclass3 in cls_names:
                     f.write(myclass3)
                     f.write('\n')
-        else:
-            ftext = sg.PopupGetFile(message='Please find file classes.txt',title='This is PopupFileBrowser ',file_types=(("Classes File", "classes.txt"),("Text Files", "*.txt"),))
-            if ftext != '' and ftext != None:
-                f = open(ftext, 'r')
-                txt=''
-                myclasses3 = []
-                while True: 
-                    # Get next line from file
-                    line = f.readline()
-                    text = line.split('\n')
-                    if text[0] != '':
-                        myclasses3.append(text[0])
-                    txt = txt + line
-                    if not line:
-                        break
-                print('myclasses3 =',myclasses3)
-                with open(os.getcwd() + '/labelImg/data/predefined_classes.txt', "w") as f:
-                    for myclass3 in myclasses3:
-                        f.write(myclass3)
-                        f.write('\n')
-                window['input_classes3'].update(value=txt)
-                #sg.popup('Xác nhận nội dung Labels rồi bấm OK lần nữa',title='Nhắc nhở')
-            elif ftext == '':
-                sg.popup_error('Bạn chưa chọn file classes.txt',title='Lỗi')
+            f.close()
+            # Re open to load class name
+            current_tab_key = values['-Group-']
+            window.close()
+            window = make_window()
+            event, values = window.read(timeout=30)
+            window['button_classes3'].update('Updated!')
+            window[current_tab_key].select()
+            
+        elif ftext == '':
+            sg.popup_error('Bạn chưa chọn file classes.txt',title='Lỗi')
 
     if event == 'program3':
-        if values['input_classes3'] != '':
-            program_dir = os.path.join(os.getcwd(), 'labelImg' , 'labelImg.py')
-            #ExecuteCommandSubprocess('python', program_dir)
-            subprocess.call(['python',program_dir])
-            #subprocess.call(['python', 'test2.py'])
-
-            window['input_classes3'].update(value='')
-        else:
-            sg.popup_error('Error')  
+        k = open(os.getcwd() + '/labelImg/data/predefined_classes.txt', "w")
+        for i3 in range(len(cls_names)):
+            k.write(f'{cls_names[i3]}')
+            k.write('\n')
+        k.close()
+        program_dir = os.path.join(os.getcwd(), 'labelImg' , 'labelImg.py')
+        subprocess.call(['python',program_dir])
 
 #5
     if event == 'start4':
         if (values['input_image4'] !='') & (values['input_save4'] != ''):
             dir = values['input_image4']
             TM = values['input_save4']
+            # list_image = [] 
+            # list_text = []
             list_image_train = []
-            
+            # list_image_valid = []
+            # list_text_train = []
+            # list_text_valid = []
+
+            # list_name_train = []
+            # list_name_valid = []
+
             os.mkdir(TM + '/train')
             os.mkdir(TM + '/valid')
             os.mkdir(TM + '/train/images')
@@ -981,21 +1015,103 @@ while True:             # Event Loop
             
             if os.path.exists(dir + '/classes.txt'):
                 shutil.copyfile(dir + '/classes.txt', TM + '/classes.txt')
-                notify('Notification','Data splited and copy classes.txt')
-            else:
-                notify('Notification','Data splited but Not found classes.txt')
-            
+            sg.popup('Xong')
+            # for i,a in zip(reversed(range(len(dir))),reversed(dir)):
+            #     if a == '/':
+            #         index = i
+            #         break
+
+            # for path in glob.glob(dir):
+            #     name = path[index+1:-4]
+            #     extension = path[-3:]
+
+            #     if extension == 'jpg':
+            #         list_image.append(path)
+
+            #     if extension == 'txt':
+            #         list_text.append(path)
+
+            # #random.seed(0)
+            # list_image_train = random.sample(list_image,int(len(list_image)*0.85))
+
+
+            # for item_image in list_image:
+            #     if item_image not in list_image_train: 
+            #         list_image_valid.append(item_image)
+
+
+            # for path_train in list_image_train:
+            #     name_train = path_train[index+1:-4]
+            #     list_name_train.append(name_train)
+
+            # for path_valid in list_image_valid:
+            #     name_valid = path_valid[index+1:-4]
+            #     list_name_valid.append(name_valid)
+
+            # for item_text in list_text:
+            #     name_text = item_text[index+1:-4]
+            #     if name_text in list_name_train:
+            #         list_text_train.append(item_text)
+            #     elif name_text in list_name_valid:
+            #         list_text_valid.append(item_text)
+
+            # for path1 in list_image_train:
+            #     name1 = path1[index+1:-4]
+            #     shutil.copyfile(path1,TM+'/train/images/'+ name1 + '.jpg')
+
+            # for path2 in list_text_train:
+            #     name2 = path2[index+1:-4]
+            #     shutil.copyfile(path2,TM+'/train/labels/'+ name2 + '.txt')
+
+            # for path3 in list_image_valid:
+            #     name3 = path3[index+1:-4]
+            #     shutil.copyfile(path3,TM+'/valid/images/'+ name3 + '.jpg')
+
+            # for path4 in list_text_valid:
+            #     name4 = path4[index+1:-4]
+            #     shutil.copyfile(path4,TM+'/valid/labels/'+ name4 + '.txt')
+
             window['input_image4'].update(value='')
             window['input_save4'].update(value='')
 
         else:
             sg.popup_error('Error')  
 
-    
+    # if event == 'start4a':
+    #     tatca = glob.glob(values['input_image4a'] + '/**/*.*', recursive=True)
+    #     i=ht=0
+    #     #window['speed5a'].update(disabled=False)
+    #     for f in tatca:
+    #         tenf = os.path.basename(f)
+    #         print(tenf)
+    #         shutil.copyfile(f,values['directory_save4a'] + '/' + tenf)
+    #         i += 1
+    #         if ht != int(100 * (i/len(tatca))):
+    #             ht = int(100 * (i/len(tatca)))
+    #             window['speed5a'].update(value=ht)
+    #             window.refresh()
+                
+    #     sg.popup('Xong')
+
     if event == 'start4a':
         print('a')
         test()
-       
+        # tatca = glob.glob(values['input_image4a'] + '/**/*.*', recursive=True)
+        # i=ht=0
+        # if len(tatca) > 0:
+        #     window['progress1'].update(visible=True)
+        #     for f in tatca:
+        #         tenf = os.path.basename(f)
+        #         print(tenf)
+        #         shutil.copyfile(f,values['directory_save4a'] + '/' + tenf)
+        #         i += 1
+        #         if ht != int(100 * (i/len(tatca))):
+        #             ht = int(100 * (i/len(tatca)))
+        #             window['progress1'].UpdateBar(ht)
+        #             window.refresh()
+                    
+        # sg.popup('Xong')
+
     if event == 'start4b':
         txt = glob.glob(values['input_image4b'] + '/*.txt')
         cls = int(values['cls5'])
@@ -1009,7 +1125,7 @@ while True:             # Event Loop
                             break
                         tmp = line.split()
                         if int(tmp[0])==cls:
-                            # print(tenf)
+                            print(tenf)
                             f.close()
                             if os.path.exists(filename[:-3] + 'jpg'):
                                 if values['CHK_MOVE1']:
@@ -1023,7 +1139,7 @@ while True:             # Event Loop
                             break   
             else:
                 shutil.copyfile(filename,values['directory_save4b'] + '/' + tenf)
-        notify('Thong bao','Finished')
+        sg.popup('Xong')
 #6
 
     if event == 'move5':
@@ -1042,7 +1158,7 @@ while True:             # Event Loop
                     # Copy lại data mới đã chia
                     shutil.copytree(cpath + '/train',TM + '/train')
                     shutil.copytree(cpath + '/valid',TM + '/valid')
-                    notify('Thong bao','Data copied')
+                    sg.popup('Xong')
                 except:
                     sg.popup_error('Lỗi')   
                     print(traceback.format_exc())
@@ -1077,7 +1193,7 @@ while True:             # Event Loop
                             shutil.copyfile(f,TM+'/valid/images/'+ tenf)
                             shutil.copyfile(f[:-3] + 'txt',TM+'/valid/labels/'+ tenf[:-3] + 'txt')
 
-                    notify('Thong bao','Data copied')
+                    sg.popup('Xong')
                 except:
                     sg.popup_error('Lỗi')   
                     print(traceback.format_exc())
@@ -1191,51 +1307,38 @@ while True:             # Event Loop
         else:
             sg.popup_error('Error1')  
     
-    if event == 'input_move6':
-        ftext = txt = myclasses6 = ''
-        chk = False
-        ftext =values['input_move6'] + '/classes.txt'
-        if not os.path.exists(ftext):
-            ftext = sg.PopupGetFile(message='Please find file classes.txt',title='Not found file classes.txt ',file_types=(("Classes File", "classes.txt"),("Text Files", "*.txt"),))
-            if ftext == '' or ftext == None:
+    if event == 'button_classes6' :
+        if (values['input_classes6'] != ''):
+            #print(values['input_classes2'])
+            myclasses6 = ''
+            texts = values['input_classes6'].split('\n')
+            for text in texts:
+                myclasses6 = myclasses6 + text + ', '
+            myclasses6 = myclasses6[:-2]
+            print('myclasses6 =',myclasses6)
+        else:
+            ftext = sg.PopupGetFile(message='Please find file classes.txt',title='This is PopupFileBrowser ',file_types=(("Classes File", "classes.txt"),("Text Files", "*.txt"),))
+            if ftext != '' and ftext != None:
+                f = open(ftext, 'r')
+                txt=''
+                myclasses6 = ''
+                while True: 
+                    # Get next line from file
+                    line = f.readline()
+                    text = line.split('\n')
+                    if text[0] != '':
+                        myclasses6 = myclasses6 + text[0] + ', '
+                    txt = txt + line
+                    if not line:
+                        break   
+                myclasses6 = myclasses6[:-2]
+                print('myclasses6 =',myclasses6)
+                window['input_classes6'].update(value=txt)
+            elif ftext == '':
                 sg.popup_error('Bạn chưa chọn file classes.txt', title='Lỗi')
-            else:
-                chk = True
-        else:
-            chk = True 
-        if chk:        
-            f = open(ftext, 'r')
-            while True: 
-                # Get next line from file
-                line = f.readline()
-                text = line.split('\n')
-                if text[0] != '':
-                    myclasses6 = myclasses6 + text[0] + ','
-                txt = txt + line
-                if not line:
-                    break   
-            f.close()
-            myclasses6 = myclasses6[:-1]
-        if len(myclasses6)==0:
-            notify('Thông báo lỗi',"File classes không có gì")
-        else:
-            print('Name of labels =',myclasses6)
-            window['input_classes6'].update(value=txt)
-    
+
     if event == 'start6':
-        connection = sqlite3.connect('Queue_train.db')
-        cursor = connection.cursor()
-        while True:
-            try:
-                cursor.execute("INSERT INTO TabQueue (Datas, Classes, Epoches, Sizes, Batch,SavePath, WeightName ) VALUES (?,?,?,?,?,?,?)", 
-                    (values['input_move6'], myclasses6 ,int(values['input_epoch6']), int(values['sz6']), int(values['bz6']), values['input_save6'],values['input_name6']))
-                break
-            except sqlite3.OperationalError as error:
-                if 'database is locked' not in str(error):
-                    raise error
-                else:
-                    time.sleep(1)
-        connection.commit()
+        execute_query("INSERT INTO TabQuee (Datas, Classes, Epoches, Sizes, SavePath, WeightName ) VALUES (?,?,?,?,?,?)", (values['input_move6'], myclasses6 ,int(values['input_epoch6']), int(values['sz6']), values['input_save6'],values['input_name6']))
         window['input_move6'].update(value='')
         window['input_classes6'].update(value='')
         window['input_save6'].update(value='')

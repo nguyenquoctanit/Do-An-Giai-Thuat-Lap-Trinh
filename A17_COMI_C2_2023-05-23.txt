@@ -1,0 +1,6 @@
+RESULT FINAL
+                 all      0.859
+              BuiChi      0.903
+               DiVat      0.827
+                BaVo      0.897
+             SoiBaVo       0.81

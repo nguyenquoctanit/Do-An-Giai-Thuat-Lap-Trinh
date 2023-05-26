@@ -494,7 +494,7 @@ for path1 in glob.glob('C:/Check1/*.jpg'):
 mypath1 = load_model(1)
 model1 = torch.hub.load('./levu','custom', path= mypath1, source='local',force_reload =False)
 
-move_al =0
+move_al = 0
 index_i = 0
 img1_test = os.path.join(os.getcwd(), 'img/imgtest.jpg')
 result1 = model1(img1_test,416,0.25) 
@@ -727,7 +727,7 @@ try:
             window['choose_model'].update(value=mychoose)
 
 
-            cursor = conn.execute("SELECT ChooseModel,Camera,Weights,Confidence,have_1,have_2,have_3,have_4,have_5,have_6,have_7,have_8,have_9,have_10,folder_1,folder_2,folder_3,folder_4,folder_5,folder_6,folder_7,folder_8,folder_9,folder_10,Joined,Ok,Num,NG,WidthMin,WidthMax,HeightMin,HeightMax,PLC_NG,PLC_OK from MYMODEL")
+            cursor = conn.execute("SELECT ChooseModel,Camera,Weights,Confidence,have_1,have_2,have_3,have_4,have_5,have_6,have_7,have_8,have_9,have_10,folder_1,folder_2,folder_3,folder_4,folder_5,folder_6,folder_7,folder_8,folder_9,folder_10,Joined,Ok,Num,NG,WidthMin,WidthMax,HeightMin,HeightMax,PLC_NG,PLC_OK,Conf from MYMODEL")
             for row in cursor:
                 if row[0] == values['choose_model']:
                     row1_a, row1_b = row[1].strip().split('_')
@@ -744,6 +744,8 @@ try:
                                 window[f'{model1.names[item]}_Hx_1'].update(value=str(row[31]))
                                 window[f'{model1.names[item]}_PLC_1'].update(value=str(row[32]))
                                 window['OK_PLC_1'].update(value=str(row[33]))
+                                window[f'{model1.names[item]}_Conf_1'].update(value=str(row[34]))
+
 
 
 
@@ -822,10 +824,10 @@ try:
                                     elif conf1  < int(values[f'{model1.names[i1]}_Conf_1']):
                                         table1.drop(item, axis=0, inplace=True)
                                         area_remove1.append(item)
-                        if values[f'{model1.names[i1]}_1'] == False:
-                            if label_name == model1.names[i1]:
-                                table1.drop(item, axis=0, inplace=True)
-                                area_remove1.append(item)
+                            if values[f'{model1.names[i1]}_1'] == False:
+                                if label_name == model1.names[i1]:
+                                    table1.drop(item, axis=0, inplace=True)
+                                    area_remove1.append(item)
 
 
                     names1 = list(table1['name'])
@@ -1008,7 +1010,7 @@ try:
 
         if event == 'Change_1':
 
-            list_variable = [[0]*11 for i in range(len(model1.names))]
+            list_variable = [[0]*12 for i in range(len(model1.names))]
 
             for i,item in enumerate(range(len(model1.names))):
                 list_variable[i][0] = model1.names[i]
@@ -1023,6 +1025,8 @@ try:
                 list_variable[i][8] = values[f'{model1.names[item]}_Hx_1'] 
                 list_variable[i][9] = values[f'{model1.names[item]}_PLC_1'] 
                 list_variable[i][10] = values['OK_PLC_1']
+                list_variable[i][11] = values[f'{model1.names[item]}_Conf_1'] 
+
     
 
 
@@ -1105,6 +1109,8 @@ try:
                             window[f'{model1.names[item]}_Hx_1'].update(value= list_variable[i][8])
                             window[f'{model1.names[item]}_PLC_1'].update(value= list_variable[i][9])
                             window['OK_PLC_1'].update(value= list_variable[i][10])
+                            window[f'{model1.names[item]}_Conf_1'].update(value= list_variable[i][11])
+
 
 
 
